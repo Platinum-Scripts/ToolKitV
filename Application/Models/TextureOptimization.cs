@@ -94,7 +94,12 @@ namespace ToolkitV.Models
 
             return texture;
         }
-        private static Texture OptimizeTexture(Texture texture, bool formatOptimization, bool downsize)
+        private static int GetCorrectMipMapAmount(int width, int height)
+        {
+            int size = Math.Min(width, height);
+            return (int)Math.Log(size, 2) - 1;
+        }
+        private static Texture OptimizeTexture(Texture texture, bool formatOptimization, bool downsize, ushort optimizeSizeValue)
         {
             int minSide = Math.Min(texture.Width, texture.Height);
             int maxLevel = (int)Math.Log(minSide, 2);
@@ -147,11 +152,29 @@ namespace ToolkitV.Models
                 }
             }
 
-            if (downsize)
-            {
-                texture.Width /= 2;
-                texture.Height /= 2;
-                texture.Levels = Convert.ToByte(Math.Log(Math.Min(texture.Width, texture.Height), 2) - 1);
+            if (downsize) {
+                Debug.WriteLine($"[START] Texture name: {texture.Name}, Width: {texture.Width}, Height: {texture.Height}, Levels: {texture.Levels}");
+
+                if (texture.Width >= optimizeSizeValue) {
+                    while (texture.Width >= optimizeSizeValue) {
+                        texture.Width = (ushort)Convert.ToInt32(texture.Width * 0.98);
+                    }
+                    while (texture.Width % 2 != 0) {
+                        texture.Width--;
+                    }
+                }
+                
+                if (texture.Height >= optimizeSizeValue) {
+                    while (texture.Height >= optimizeSizeValue) {
+                        texture.Height = (ushort)Convert.ToInt32(texture.Height * 0.98);
+                    }
+                    while (texture.Height % 2 != 0) {
+                        texture.Height--;
+                    }
+                }
+                
+                texture.Levels = Convert.ToByte(GetCorrectMipMapAmount(texture.Width, texture.Height));
+                Debug.WriteLine($"[END] Texture name: {texture.Name}, Width: {texture.Width}, Height: {texture.Height}, Levels: {texture.Levels}");
             }
 
             texture = ConvertTexture(texture, texConvFormat, tempFileData);
@@ -300,6 +323,16 @@ namespace ToolkitV.Models
                 for (int j = 0; j < ytdFile.TextureDict.Textures.Count; j++)
                 {
                     Texture texture = ytdFile.TextureDict.Textures[j];
+
+                    // Aspect Ratio Check
+                    // if (texture.Width != texture.Height)
+                    // {
+                    //     // Skip non-square textures
+                    //     logWriter.LogWrite($"Texture name: {texture.Name}, not square, skip");
+                    //     Debug.WriteLine($"Texture name: {texture.Name}, not square, skip");
+                    //     continue;
+                    // }
+
                     bool isScriptTexture = texture.Name.ToLower().Contains("script_rt");
 
                     if (isScriptTexture && isScriptTextureCompressed(texture))
@@ -341,7 +374,7 @@ namespace ToolkitV.Models
                             ytdChanged = true;
                         }
 
-                        Texture newTexture = OptimizeTexture(texture, formatOptimization, downsize);
+                        Texture newTexture = OptimizeTexture(texture, formatOptimization, downsize, optimizeSizeValue);
 
                         resultsData.filesOptimized++;
 
