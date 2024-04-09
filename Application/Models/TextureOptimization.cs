@@ -77,7 +77,8 @@ namespace ToolkitV.Models
         {
             Process texConvertation = new();
             texConvertation.StartInfo.FileName = "Dependencies/texconv.exe";
-            texConvertation.StartInfo.Arguments = $"-w {texture.Width} -h {texture.Height} -m {texture.Levels} -f {convertFormat} -bc d {uniqueName}.dds -y";
+            // texConvertation.StartInfo.Arguments = $"-w {texture.Width} -h {texture.Height} -m {texture.Levels} -f {convertFormat} -bc d {uniqueName}.dds -y";
+            texConvertation.StartInfo.Arguments = $"-w {texture.Width} -h {texture.Height} -m 1 -f DXT5 -bc d {uniqueName}.dds -y";
             texConvertation.StartInfo.UseShellExecute = false;
             texConvertation.StartInfo.CreateNoWindow = true;
 
@@ -93,6 +94,9 @@ namespace ToolkitV.Models
             texture.Levels = tex.Levels;
             texture.Format = tex.Format;
             texture.Stride = tex.Stride;
+
+            // delete temp file
+            File.Delete(tempFileData.path);
 
             return texture;
         }
@@ -167,9 +171,6 @@ namespace ToolkitV.Models
                 };
 
                 // Check if texture needs to be resized.
-                int initialX = texture.Width;
-                int initialY = texture.Height;
-
                 int totalDimensions = texture.Width + texture.Height;
                 int targetTotalDimensions = optimizeSizeValue * 2;
 
@@ -179,7 +180,7 @@ namespace ToolkitV.Models
                     if ((totalDimensions * 0.95f) >= targetTotalDimensions)
                     {
                         // Calculate the scale factor outside of the loop to avoid redundant calculations.
-                        float scaleFactor = 0.98f;
+                        float scaleFactor = 0.99f;
                         int newWidth = texture.Width;
                         int newHeight = texture.Height;
 
@@ -201,7 +202,7 @@ namespace ToolkitV.Models
                         if (percentChange >= 5f)
                         {
                             // Log the downsizing.
-                            Debug.WriteLine($"[OPTIMIZED] Texture name: {texture.Name}, downsize: {percentChange:F2}% ({texture.Width}x{texture.Height} -> {newWidth}x{newHeight})");
+                            Debug.WriteLine($"[OPTIMIZED] Texture ({texture.Format} [{GetCorrectMipMapAmount(texture.Width, texture.Height)}] mip) name: {texture.Name} ({texConvFormat} [{GetCorrectMipMapAmount(newWidth, newHeight)}]), downsize: {percentChange:F2}% ({texture.Width}x{texture.Height} -> {newWidth}x{newHeight})");
 
                             // Update texture properties since the percent change is significant.
                             texture.Width = (ushort)newWidth;
@@ -460,16 +461,6 @@ namespace ToolkitV.Models
 
             // 100%
             updateHandler?.DynamicInvoke(100);
-
-            // Remove all the temporary files
-            DirectoryInfo di = new(path);
-            foreach (FileInfo file in di.GetFiles())
-            {
-                if (file.Extension == ".dds")
-                {
-                    file.Delete();
-                }
-            }
 
             return results;
         }
